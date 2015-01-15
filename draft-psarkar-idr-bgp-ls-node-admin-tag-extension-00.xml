@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+<?rfc toc="yes"?>
+<?rfc tocompact="yes"?>
+<?rfc tocdepth="3"?>
+<?rfc tocindent="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<rfc category="std" docName="draft-psarkar-idr-bgp-ls-node-admin-tag-extension-00" ipr="trust200902">
+
+  <!-- ***** FRONT MATTER ***** -->
+
+  <front>
+     <title>Advertising Per-node Admin Tags in BGP Link-State Advertisements</title>
+
+
+    <author initials="P." surname="Sarkar" fullname="Pushpasis Sarkar" role="editor">
+      <organization>Juniper Networks, Inc.</organization>
+      <address>
+      <postal>
+      <street>Electra, Exora Business Park</street>
+      <city>Bangalore</city>
+      <region>KA</region>
+      <code>560103</code>
+      <country>India</country>
+      </postal>
+      <email>psarkar@juniper.net</email>
+      </address>
+    </author>
+
+    <author fullname="Hannes Gredler" initials="H." surname="Gredler">
+      <organization>Juniper Networks, Inc.</organization>
+      <address>
+      <postal>
+      <street>1194 N. Mathilda Ave.</street>
+      <city>Sunnyvale</city>
+      <region>CA</region>
+      <code>94089</code>
+      <country>US</country>
+      </postal>
+      <email>hannes@juniper.net</email>
+      </address>
+    </author>
+
+    <date day="15" month="January" year="2015" />
+
+    <workgroup>Inter-Domain Routing</workgroup>
+
+    <keyword>BGP-LS</keyword>
+    <keyword>Admin-Tag</keyword>
+    <keyword>Traffic Engineering</keyword>
+
+    <abstract>
+      <t>This document describes the protocol extensions to collect per-node 
+      administrative tags adevertised in IGP Link State advertisements and  
+      disseminate the same in BGP Link-State advertisement protocol, to facilitate 
+      inter-AS TE applications that may need the same per-node administartive tags  
+      to associate a subset of network devices spanning across more than one AS 
+      with a specific functionality.</t>
+    </abstract>
+
+    <note title="Requirements Language">
+      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+      "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+      document are to be interpreted as described in <xref
+      target="RFC2119">RFC 2119</xref>.</t>
+    </note>
+</front>
+
+<middle>
+
+  <section title="Introduction" anchor='intro'>
+    <t> Advertising Per-node Administrative Tags in Link State protocols like 
+    IS-IS <xref target="I-D.ietf-isis-node-admin-tag"/> and OSPF 
+    <xref target="I-D.ietf-ospf-node-admin-tag"/> allows adding an optional  
+    operational capability, that allows tagging and grouping of the nodes in  
+    a IGP domain. This, among other applications, allows simple management and 
+    easy control over route and path selection, based on local configured 
+    policies. However per-node administrative tags advertised in IGP 
+    advertisements let network operators associate nodes within a single AS 
+    (if not a single area). This limits the use of such per-node administrative 
+    tags and applications that need to associate a subset of network devices
+    spanning across multiple AS with a specific functionality cannot use them.</t>
+
+    <t>To address the need for applications that require visibility
+    into LSDB across IGP areas, or even across ASes, the BGP-LS
+    address-family/sub-address-family have been defined that allows
+    BGP to carry LSDB information. The BGP Network Layer
+    Reachability Information (NLRI) encoding format for BGP-LS and a
+    new BGP Path Attribute called BGP-LS attribute are defined in
+    <xref target="I-D.ietf-idr-ls-distribution"></xref>. The
+    identifying key of each LSDB object, namely a node, a link or a
+    prefix, is encoded in the NLRI and the properties of the object
+    are encoded in the BGP-LS attribute.  Figure <xref
+    target="MECHANISM-CONSUMER-PRODUCER"/> describes a typical
+    deployment scenario. In each IGP area, one or more nodes are
+    configured with BGP-LS. These BGP speakers form an IBGP mesh by
+    connecting to one or more route-reflectors. This way, all BGP
+    speakers - specifically the route-reflectors - obtain LSDB
+    information from all IGP areas (and from other ASes from EBGP
+    peers). An external component connects to the route-reflector to
+    obtain this information (perhaps moderated by a policy regarding
+    what information is sent to the external component, and what
+    information isn't).
+    </t>
+
+    <figure anchor="MECHANISM-CONSUMER-PRODUCER"
+            title="Link State info collection">
+      <artwork>
+                        +------------+
+                        |  Consumer  |
+                        +------------+
+                              ^
+                              |
+                              v
+                    +-------------------+
+                    |    BGP Speaker    |         +-----------+
+                    | (Route-Reflector) |         | Consumer  |
+                    +-------------------+         +-----------+
+                          ^   ^   ^                       ^
+                          |   |   |                       |
+          +---------------+   |   +-------------------+   |
+          |                   |                       |   |
+          v                   v                       v   v
+    +-----------+       +-----------+             +-----------+
+    |    BGP    |       |    BGP    |             |    BGP    |
+    |  Speaker  |       |  Speaker  |    . . .    |  Speaker  |
+    +-----------+       +-----------+             +-----------+
+          ^                   ^                         ^
+          |                   |                         |
+         IGP                 IGP                       IGP
+      </artwork>
+    </figure>
+
+    <t> For the purpose of advertising per-node administrative tags within BGP 
+    Link-State advertisements, a new Node Attribute TLV to be carried in the 
+    corresponding BGP-LS Node NLRI is proposed. For more details on the Node 
+    Attribute TLVs please refer to section 3.3.1 in 
+    <xref target="I-D.ietf-idr-ls-distribution"/></t>
+
+  </section>
+
+  <section title='Per-Node Administrative Tag'>
+    <t> An administrative Tag is a 32-bit integer value that can be used to identify 
+    a group of nodes in the entire routing domain. The new sub-TLV specifies one or more 
+    administrative tag values. A BGP Link-State speaker that also participates in the IGP 
+    link state advertisements exchange may learn one or more per-node administrative tags 
+    advertised by another router in the same IGP domain. Such BGP-LS speaker shall encode 
+    the same set of per-node administrative tags in the corresponding Node Attribute TLV 
+    representing the network device that originated the per-node administraive tags.</t>
+
+    <t> The per-node administrative tags advertised in IGP link state advertisements will 
+    have either per-area(or levels in IS-IS)scope or 'global' scope. Operator may choose to 
+    a set of per-node administrative tags across areas (or levels in IS-IS) and another 
+    advertise set of per-node  administrative tags within the specific area (or level). 
+    But evidently the per-node administrative tags with 'per-area(or level) scope, advertised 
+    within IGP cannot be advertised across multiple ASes. A receiving BGP-LS router will not 
+    be able to distinguish between the significance of a per-area administrative tag learnt 
+    in one area, from that advertised in another area, if they have the same value associated 
+    but different significance across different areas or ASes. Implementations SHOULD 
+    allow a BGP-LS router to re-advertise a per-node admin tag learnt from IGP links state 
+    advertisements if and only if it has 'global' scope.</t>
+
+  </section>
+
+  <section title="BGP-LS Extensions for Segment Routing">
+    <t>The BGP-LS NLRI can be a node NLRI, a link NLRI or a prefix NLRI. The  
+    corresponding BGP-LS attribute is a node attribute, a link attribute or 
+    a prefix attribute. <xref target="I-D.ietf-idr-ls-distribution">BGP-LS</xref> 
+    defines the TLVs that map link-state information to BGP-LS NLRI and BGP-LS
+    attribute. This document adds an new Node Attribute TLV called 'Node Admin 
+    Tag TLV' to encode per-node administrative tags information.</t>
+
+    <t><xref target="I-D.ietf-isis-node-admin-tag"/> defines the 'Per-node 
+    Admin Tag' sub-TLV in the Router Capability TLV (type 242) in IS-IS 
+    Link State PDUs to encode per-node administrative tags. Similarly 
+    <xref target="I-D.ietf-isis-node-admin-tag"/> defines the 'Per-node 
+    Administrative Tag' TLV in OSPF Router Information LSAs to encode per-node 
+    administrative tags in OSPF Link State update packets. The per-node 
+    administrative tags TLVs learnt from the IGP link state advertisements 
+    of a specific node will all be insterted in a new Node Admin Tag TLV 
+    and added to the corresponding Node are mapped to the corresponding 
+    BGP-LS Node NLRI. Per-node administrative tags from IGP advertisemnets are 
+    mapped to the corresponding Node Admin Tag TLV in the following way.</t>
+
+    <texttable anchor="node-attribute_tlv"
+               title="Node Admin Tag TLV Mapping from IGP">
+      <ttcol align="center">TLV Code Point</ttcol>
+      <ttcol align="left">Description</ttcol>
+      <ttcol align="left">Length</ttcol>
+      <ttcol align="right">IS-IS TLV/sub-TLV</ttcol>
+      <ttcol align="right">OSPF LSA/TLV</ttcol>
+
+      <c>TBD</c>
+      <c>Node Admin Tag TLV</c>
+      <c>Variable</c>
+      <c><eref target="http://tools.ietf.org/html/draft-ietf-isis-node-admin-tag-00#section-3.1">242/TBD</eref></c>
+      <c><eref target="http://tools.ietf.org/html/draft-ietf-ospf-node-admin-tag-00#section-4.1">RI-LSA/TBD</eref></c>
+    </texttable>
+
+    <section title='Node Admin Tag TLV'>
+      <t>The new Node Administrative Tag TLV, like other BGP-LS Node Attribute TLVs, is formatted 
+      as Type/Length/Value (TLV)triplets. <xref target="nodeadmintagtlv"/> below shows the 
+      format of the new TLV.</t>
+
+      <figure anchor="nodeadmintagtlv" title="BGP Link-State Node Administrative Tag TLV">
+        <artwork>
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |              Type             |             Length            | 
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                   Administrative Tag #1                       |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                   Administrative Tag #2                       |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //                                                             //
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                   Administrative Tag #N                       |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type :  A 2-octet field specifiying code-point of the new 
+           sub-TLV type. Code-point: TBA (suggested 1040)
+
+   Length: A 2-octet field that indicates the length of the value
+           portion in octets and will be a multiple of 4 octets
+           dependent on the number of tags advertised.
+
+   Value:  A sequence of multiple 4 octets defining the administrative tags.
+
+        </artwork>
+      </figure>
+
+      <t>This new type of 'Node Admin Tag' TLVs can ONLY be added to the Node 
+      Attribute associated with the Node NLRI that originates the corresponding 
+      per-node administrative tags in IGP domain.</t>
+
+      <t>All the per-node administritative tags originated by a single node in 
+      IGP domain SHALL be re-originated in a single 'Node Admin Tag' TLV 
+      inserted in the Node NLRI generated for the node in IGP domain that 
+      advertised them originally. However multiple instances of a TLV may be 
+      generated by the BGP-lS router for a given node in the IGP domain. This 
+      MAY happen if the original node's link state advertisement carries more 
+      than 16383 per-node administrative groups and a single TLV does not 
+      provide sufficient space. As such multiple occurence of the 'Node Admin Tag' 
+      TLVs under a single BGP LS NLRI is cumulative.</t>
+    </section>
+  </section>
+
+  <section title='Elements of Procedure'>
+    <t> Meaning of the Per-node administrative tags is generally opaque to 
+    BGP Link-State protocol. Router advertising the per-node administrative 
+    tag (or tags) may be configured to do so without knowing (or even explicitly 
+    supporting) functionality implied by the tag.</t>
+
+    <t> Interpretation of tag values is specific to the administrative domain
+    of a particular network operator. The meaning of a per-node administrative 
+    tag is defined by the network local policy and is controlled via the 
+    configuration. However multipe administrative domain owners may agree on 
+    a common meaning implied by a administrative tag for mutual benefit.</t>
+
+    <t> The semantics of the tag order has no meaning. There is no implied 
+    meaning to the ordering of the tags that indicates a certain operation 
+    or set of operations that need to be performed based on the ordering.</t>
+
+    <t> Each tag SHOULD be treated as an independent identifier that MAY be 
+    used in policy to perform a policy action. Per-node administrative tags 
+    carried by the Node Admin Tag TLV SHOULD be used to indicate a independent 
+    characteristics of the node in IGP domain that originated it. The TLV 
+    SHOULD be considered as an unordered list. Whilst policies may be implemented 
+    based on the presence of multiple tags (e.g., if tag A AND tag B are present), 
+    they MUST NOT be reliant upon the order of the tags (i.e., all policies 
+    should be considered commutative operations, such that tag A preceding 
+    or following tag B does not change their outcome).</t>
+
+    <t> For more details on guidance on usage of per-node administrative 
+    tags please refer to 
+    <eref target="http://tools.ietf.org/html/draft-ietf-isis-node-admin-tag-00#section-4">section 4</eref> 
+    in <xref target="I-D.ietf-isis-node-admin-tag"/>. </t>
+  </section>
+
+  <section title='Applications'>
+    <t> For more details on some possible applications with per-node 
+    administrative tags please refer to 
+    <eref target="http://tools.ietf.org/html/draft-ietf-isis-node-admin-tag-00#section-5">section 5</eref> 
+    in <xref target="I-D.ietf-isis-node-admin-tag"/>. </t>
+  </section>
+
+  <section anchor="IANA" title="IANA Considerations">
+    <t>This document requests assigning code-points from the registry 
+    for BGP-LS attribute TLVs based on table <xref
+    target="BGPLSCODEPOINTS"/>.
+    </t>
+  </section>
+
+  <section anchor="Manageability" title="Manageability Considerations">
+    <t>This section is structured as recommended in <xref
+    target="RFC5706"></xref>.</t>
+
+    <section anchor="Operational-Considerations"
+             title="Operational Considerations">
+
+      <section anchor="Operations" title="Operations">
+
+        <t>Existing BGP and BGP-LS operational procedures apply.
+        No new operation procedures are defined in this document.</t>
+
+      </section>
+
+    </section>
+
+  </section>
+
+  <section anchor="TLVSUMMARY" title="TLV/Sub-TLV Code Points Summary">
+    <t>This section contains the global table of all TLVs/Sub-TLVs defined in
+    this document.</t>
+    
+    <texttable anchor="BGPLSCODEPOINTS"
+               title="Summary Table of TLV/Sub-TLV Codepoints">
+      <ttcol align="center">TLV Code Point</ttcol>
+      <ttcol align="left">Description</ttcol>
+      <ttcol align="center">Length</ttcol>
+
+      <!-- BGP-LS Attribute TLVs -->
+
+      <!-- Node Attributes TLVs -->
+
+      <c>1040</c>
+      <c>Node Admin Tag</c>
+      <c>variable</c>
+    </texttable>
+  </section>
+
+  <section anchor="Security" title="Security Considerations">
+    <t>Procedures and protocol extensions defined in this document do not
+    affect the BGP security model. See the 'Security Considerations' section
+    of <xref target="RFC4271"/> for a discussion of BGP security.  Also refer
+    to <xref target="RFC4272"/> and <xref target="RFC6952"/>
+    for analysis of security issues for BGP.</t>
+
+  </section>
+
+  <section anchor="Acknowledgements" title="Acknowledgements">
+    <t>TBD.</t>
+  </section>
+</middle>
+
+<back>
+  <references title='Normative References'>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml/reference.RFC.2119.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml/reference.RFC.4271.xml"?>
+  </references>
+
+  <references title='Informative References'>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml/reference.RFC.4272.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml/reference.RFC.5706.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml/reference.RFC.6952.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml3/reference.I-D.draft-ietf-isis-node-admin-tag-00.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml3/reference.I-D.draft-ietf-ospf-node-admin-tag-00.xml"?>
+    <?rfc include="http://xml.resource.org/public/rfc/bibxml3/reference.I-D.draft-ietf-idr-ls-distribution-07.xml"?>
+  </references>
+</back>
+</rfc>
