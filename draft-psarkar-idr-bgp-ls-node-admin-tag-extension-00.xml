@@ -46,7 +46,7 @@
       </address>
     </author>
 
-    <date day="15" month="January" year="2015" />
+    <date day="30" month="January" year="2015" />
 
     <workgroup>Inter-Domain Routing</workgroup>
 
@@ -146,28 +146,45 @@
 
   <section title='Per-Node Administrative Tag'>
     <t> An administrative Tag is a 32-bit integer value that can be used to identify 
-    a group of nodes in the entire routing domain. The new sub-TLV specifies one or more 
-    administrative tag values. A BGP Link-State speaker that also participates in the IGP 
-    link state advertisements exchange may learn one or more per-node administrative tags 
-    advertised by another router in the same IGP domain. Such BGP-LS speaker shall encode 
-    the same set of per-node administrative tags in the corresponding Node Attribute TLV 
-    representing the network device that originated the per-node administraive tags.</t>
+    a group of nodes in the entire routing domain. The new sub-TLV specifies one or 
+    more administrative tag values. A BGP Link-State speaker that also participates 
+    in the IGP link state advertisements exchange may learn one or more per-node 
+    administrative tags advertised by another router in the same IGP domain. Such 
+    BGP-LS speaker shall encode the same set of per-node administrative tags in the 
+    corresponding Node Attribute TLV representing the network device that originated 
+    the per-node administraive tags.</t>
 
-    <t> The per-node administrative tags advertised in IGP link state advertisements will 
-    have either per-area(or levels in IS-IS)scope or 'global' scope. Operator may choose to 
-    a set of per-node administrative tags across areas (or levels in IS-IS) and another 
-    advertise set of per-node  administrative tags within the specific area (or level). 
-    But evidently the per-node administrative tags with 'per-area(or level) scope, advertised 
-    within IGP cannot be advertised across multiple ASes. A receiving BGP-LS router will not 
-    be able to distinguish between the significance of a per-area administrative tag learnt 
-    in one area, from that advertised in another area, if they have the same value associated 
-    but different significance across different areas or ASes. Implementations SHOULD 
-    allow a BGP-LS router to re-advertise a per-node admin tag learnt from IGP links state 
-    advertisements if and only if it has 'global' scope.</t>
+    <t> The per-node administrative tags advertised in IGP link state advertisements 
+    will have either per-area(or levels in IS-IS)scope or 'global' scope. Operator 
+    may choose to a set of per-node administrative tags across areas (or levels in 
+    IS-IS) and another advertise set of per-node  administrative tags within the 
+    specific area (or level). But evidently two areas within the same AS or two 
+    different may use the same per-node administrative tag for different purposes. 
+    In such case applications will need to distinguish between the per-area(or level) 
+    scoped administrative tags originated from a specific node agianst those originated 
+    from the same node with 'global' scope.</t>
+
+    <t>A BGP-LS router in a given AS while copying the per-node administrative tags 
+    learnt from IGP link-state advertisements, MUST also copy the scope associated 
+    with the per-node administrative tags. Refer to <xref target="node-admin-tag-tlv"/> 
+    for how to encode the associated scope of a per-node administartive tags as well.</t>
+
+    <t>To be able to distinguish between the significance of a per-area(or level) 
+    administrative tag learnt in one area, from that advertised in another area, 
+    or another AS, any applications receiving such a BGP-LS advertisements MUST 
+    consider the scope asociated with each per-node administrative tag with 'per-area
+    (or per-level) along with the area(or level in IS-IS) associated with corresponding 
+    IGP link state advertisement and the AS number associated with the originating node.
+    The area(or level) associated with corresponding IGP link state advertisement 
+    and the AS number associated with the originating node can be derived from  
+    appropriate node attributes (already defined in 
+    <xref target="I-D.ietf-idr-ls-distribution">BGP-LS</xref>) attached with the 
+    corresponding Node NLRI.</t>
 
   </section>
 
-  <section title="BGP-LS Extensions for Segment Routing">
+  <section anchor="bgp-ls-extension"
+           title="BGP-LS Extensions for Per-Node Administrative Tags">
     <t>The BGP-LS NLRI can be a node NLRI, a link NLRI or a prefix NLRI. The  
     corresponding BGP-LS attribute is a node attribute, a link attribute or 
     a prefix attribute. <xref target="I-D.ietf-idr-ls-distribution">BGP-LS</xref> 
@@ -202,7 +219,8 @@
       <c><eref target="http://tools.ietf.org/html/draft-ietf-ospf-node-admin-tag-00#section-4.1">RI-LSA/TBD</eref></c>
     </texttable>
 
-    <section title='Node Admin Tag TLV'>
+    <section anchor="node-admin-tag-tlv" 
+             title='Node Admin Tag TLV'>
       <t>The new Node Administrative Tag TLV, like other BGP-LS Node Attribute TLVs, is formatted 
       as Type/Length/Value (TLV)triplets. <xref target="nodeadmintagtlv"/> below shows the 
       format of the new TLV.</t>
@@ -213,6 +231,8 @@
   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   |              Type             |             Length            | 
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |            Flags              |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   |                   Administrative Tag #1                       |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -230,7 +250,26 @@
            portion in octets and will be a multiple of 4 octets
            dependent on the number of tags advertised.
 
-   Value:  A sequence of multiple 4 octets defining the administrative tags.
+   Value:  A 2-octet 'Flags' field, followed by a sequence of multiple 
+           4 octets defining the administrative tags.
+
+     Flags: A 2-octet field that carries flags associated with 
+            all the administrative flags encoded in this TLV. 
+            Following is the format of this field.
+
+             0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 
+            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            |L|            Reserved         | 
+            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+            The following bit flags are defined:
+
+            L bit : If the L bit is set (1), it signifies that 
+                    all administrative flags encoded in this 
+                    TLV has per-area(or level in IS-IS) scope,
+                    and should not be mixed with ones with same
+                    value but with 'global' scope (L bit reset
+                    to 0).
 
         </artwork>
       </figure>
@@ -239,13 +278,15 @@
       Attribute associated with the Node NLRI that originates the corresponding 
       per-node administrative tags in IGP domain.</t>
 
-      <t>All the per-node administritative tags originated by a single node in 
-      IGP domain SHALL be re-originated in a single 'Node Admin Tag' TLV 
-      inserted in the Node NLRI generated for the node in IGP domain that 
-      advertised them originally. However multiple instances of a TLV may be 
-      generated by the BGP-lS router for a given node in the IGP domain. This 
-      MAY happen if the original node's link state advertisement carries more 
-      than 16383 per-node administrative groups and a single TLV does not 
+      <t>All the per-node administritative tags with 'per-area' (or per-level) scope, 
+      originated by a single node in IGP domain SHALL be re-originated in a single 
+      'Node Admin Tag' TLV and inserted in the Node NLRI generated for the same node. 
+      Similarly, all the per-node administritative tags with 'global' scope originated 
+      by the same node in IGP domain SHALL be re-originated in another 'Node Admin Tag' 
+      TLV and inserted in the same Node NLRI generated for the originating node. Multiple 
+      instances of a TLV may be generated by the BGP-lS router for a given node in the 
+      IGP domain. This MAY happen if the original node's link state advertisement carries 
+      more than 16383 per-node administrative groups and a single TLV does not 
       provide sufficient space. As such multiple occurence of the 'Node Admin Tag' 
       TLVs under a single BGP LS NLRI is cumulative.</t>
     </section>
