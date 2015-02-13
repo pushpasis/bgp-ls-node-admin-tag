@@ -46,7 +46,18 @@
       </address>
     </author>
 
-    <date day="30" month="January" year="2015" />
+    <author fullname="Stephane Litkowski" initials="S" surname="Litkowski">
+      <organization>Orange</organization>
+      <address>
+        <!-- postal><street/><city/><region/><code/><country/></postal -->
+        <!-- <phone/> -->
+        <!-- <facsimile/> -->
+        <email>stephane.litkowski@orange.com</email>
+        <!-- <uri/> -->
+      </address>
+    </author>
+
+    <date day="16" month="February" year="2015" />
 
     <workgroup>Inter-Domain Routing</workgroup>
 
@@ -95,7 +106,7 @@
     <xref target="I-D.ietf-idr-ls-distribution"></xref>. The
     identifying key of each LSDB object, namely a node, a link or a
     prefix, is encoded in the NLRI and the properties of the object
-    are encoded in the BGP-LS attribute.  Figure <xref
+    are encoded in the BGP-LS attribute. <xref
     target="MECHANISM-CONSUMER-PRODUCER"/> describes a typical
     deployment scenario. In each IGP area, one or more nodes are
     configured with BGP-LS. These BGP speakers form an IBGP mesh by
@@ -105,8 +116,7 @@
     peers). An external component connects to the route-reflector to
     obtain this information (perhaps moderated by a policy regarding
     what information is sent to the external component, and what
-    information isn't).
-    </t>
+    information isn't).</t>
 
     <figure anchor="MECHANISM-CONSUMER-PRODUCER"
             title="Link State info collection">
@@ -152,7 +162,7 @@
     administrative tags advertised by another router in the same IGP domain. Such 
     BGP-LS speaker shall encode the same set of per-node administrative tags in the 
     corresponding Node Attribute TLV representing the network device that originated 
-    the per-node administraive tags.</t>
+    the per-node administrative tags.</t>
 
     <t> The per-node administrative tags advertised in IGP link state advertisements 
     will have either per-area(or levels in IS-IS)scope or 'global' scope. Operator 
@@ -161,7 +171,7 @@
     specific area (or level). But evidently two areas within the same AS or two 
     different may use the same per-node administrative tag for different purposes. 
     In such case applications will need to distinguish between the per-area(or level) 
-    scoped administrative tags originated from a specific node agianst those originated 
+    scoped administrative tags originated from a specific node against those originated 
     from the same node with 'global' scope.</t>
 
     <t>A BGP-LS router in a given AS while copying the per-node administrative tags 
@@ -199,9 +209,9 @@
     Administrative Tag' TLV in OSPF Router Information LSAs to encode per-node 
     administrative tags in OSPF Link State update packets. The per-node 
     administrative tags TLVs learnt from the IGP link state advertisements 
-    of a specific node will all be insterted in a new Node Admin Tag TLV 
+    of a specific node will all be inserted in a new Node Admin Tag TLV 
     and added to the corresponding Node are mapped to the corresponding 
-    BGP-LS Node NLRI. Per-node administrative tags from IGP advertisemnets are 
+    BGP-LS Node NLRI. Per-node administrative tags from IGP advertisements are 
     mapped to the corresponding Node Admin Tag TLV in the following way.</t>
 
     <texttable anchor="node-attribute_tlv"
@@ -289,6 +299,13 @@
       more than 16383 per-node administrative groups and a single TLV does not 
       provide sufficient space. As such multiple occurence of the 'Node Admin Tag' 
       TLVs under a single BGP LS NLRI is cumulative.</t>
+
+     <t>While copying per-node adminitsrative tags from IGP link-state advertisements 
+     to corresponding BGP-LS advertisements, the said BGP-LS speaker MAY run all the 
+     per-node administrative flags through a locally configured policy that selects which 
+     ones should be exported and which ones not. And then the per-node administrative 
+     tag is copied to the BGP-LS advertisement if it is permitted to do so by the said
+     policy.</t>
     </section>
   </section>
 
@@ -325,6 +342,33 @@
   </section>
 
   <section title='Applications'>
+    <t><xref target="I-D.ietf-isis-node-admin-tag"/> and 
+    <xref target="I-D.ietf-ospf-node-admin-tag"/> present some applications of node 
+    administrative tags.</t>
+
+    <t>The policy-based Explicit routing use case can be extended to inter-area or 
+    inter-AS scenarios where an end to end path needs to avoid or include nodes that 
+    have particular properties. Following are some examples.
+
+    <list style="numbers">
+      <t>Geopolitical routing : preventing traffic from country A to country B 
+      to cross country C. In this case, we may use node administrative tags to 
+      encode geographical information (country). Path computation will be required 
+      to take into account node administrative tag to permit avoidance of nodes 
+      belonging to country C.</t>
+
+      <t>Legacy node avoidance : in some specific cases, it is interresting for 
+      service-provider to force some traffic to avoid legacy nodes in the network.
+      For example, legacy nodes may not be carrier class (no high availability), 
+      and service provider wants to ensure that critical traffic only uses nodes
+      that are providing high availability.</t>
+    </list>
+    </t>
+
+    <t>In case of inter-AS Traffic-Engineering applications, different ASes SHOULD 
+    share their admin tag policies. They MAY also need to agree upon some common 
+    tagging policy for specific applications.</t> 
+
     <t> For more details on some possible applications with per-node 
     administrative tags please refer to 
     <eref target="http://tools.ietf.org/html/draft-ietf-isis-node-admin-tag-00#section-5">section 5</eref> 
@@ -406,3 +450,4 @@
   </references>
 </back>
 </rfc>
+
